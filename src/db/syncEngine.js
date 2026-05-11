@@ -3,8 +3,17 @@ import { supabase, isSupabaseConfigured } from './supabase'
 
 let isSyncing = false
 
+async function getCurrentUserId() {
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.id ?? null
+}
+
 export async function syncToSupabase() {
   if (!isSupabaseConfigured() || isSyncing || !navigator.onLine) return
+
+  // Don't sync if not logged in
+  const userId = await getCurrentUserId()
+  if (!userId) return
 
   isSyncing = true
   console.log('[Sync] Starting sync...')
@@ -26,7 +35,7 @@ export async function syncToSupabase() {
     }
 
     for (const [, queueItem] of dedupMap) {
-      await syncRecord(queueItem)
+      await syncRecord(queueItem, userId)
     }
 
     console.log('[Sync] Sync complete.')
@@ -37,7 +46,7 @@ export async function syncToSupabase() {
   }
 }
 
-async function syncRecord(queueItem) {
+async function syncRecord(queueItem, userId) {
   const { id: queueId, table_name, record_id, operation } = queueItem
 
   try {
@@ -52,7 +61,7 @@ async function syncRecord(queueItem) {
 
     if (!record) return
 
-    const payload = buildPayload(table_name, record)
+    const payload = buildPayload(table_name, record, userId)
 
     if (operation === 'INSERT' && !record.remote_id) {
       const { data, error } = await supabase.from(table_name).insert(payload).select().single()
@@ -99,9 +108,10 @@ async function syncTransactionItems(localTxId, remoteTxId) {
   }
 }
 
-function buildPayload(table, record) {
+function buildPayload(table, record, userId) {
   if (table === 'customers') {
     return {
+      user_id: userId,
       name: record.name,
       phone: record.phone || null,
       address: record.address || null,
@@ -111,7 +121,8 @@ function buildPayload(table, record) {
   }
   if (table === 'transactions') {
     return {
-      customer_id: record.remote_id || null, // Supabase remote customer id
+      user_id: userId,
+      customer_id: record.remote_id || null,
       type: record.type,
       amount: record.amount,
       notes: record.notes,
