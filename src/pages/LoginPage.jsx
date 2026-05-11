@@ -19,20 +19,30 @@ export default function LoginPage() {
     setLoading(true)
     setMessage('')
 
-    const { error } = isSignUp
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password })
-
-    if (error) {
-      setMessage(error.message)
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password })
+        if (error) {
+          setMessage(error.message)
+          setIsError(true)
+        } else {
+          setMessage('Tapos na! Pwede ka nang mag-login! ✅')
+          setIsError(false)
+          setIsSignUp(false)
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) {
+          setMessage(error.message)
+          setIsError(true)
+        }
+      }
+    } catch (err) {
+      setMessage('May problema! Subukan ulit. 😥')
       setIsError(true)
-    } else if (isSignUp) {
-      setMessage('Tapos na! Pwede ka nang mag-login! ✅')
-      setIsError(false)
-      setIsSignUp(false)
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   function handleKeyDown(e) {
@@ -40,13 +50,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-50 to-green-100 p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-        
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🏪</div>
-          <h1 className="text-2xl font-bold text-green-700">Utang Tracker</h1>
+    <div className="min-h-screen bg-green-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+        <div className="text-center mb-6">
+          <div className="text-5xl mb-2">🏪</div>
+          <h1 className="text-2xl font-bold text-green-600">Utang Tracker</h1>
           <p className="text-gray-500 text-sm mt-1">I-track ang utang ng iyong mga suki!</p>
         </div>
 
@@ -54,72 +62,63 @@ export default function LoginPage() {
         <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
           <button
             onClick={() => { setIsSignUp(false); setMessage('') }}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-              !isSignUp ? 'bg-white text-green-700 shadow' : 'text-gray-500'
-            }`}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${!isSignUp ? 'bg-white text-green-600 shadow' : 'text-gray-500'}`}
           >
             Mag-Login
           </button>
           <button
             onClick={() => { setIsSignUp(true); setMessage('') }}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-              isSignUp ? 'bg-white text-green-700 shadow' : 'text-gray-500'
-            }`}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${isSignUp ? 'bg-white text-green-600 shadow' : 'text-gray-500'}`}
           >
             Mag-Sign Up
           </button>
         </div>
 
-        {/* Form */}
-        <div className="space-y-3">
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Email</label>
-            <input
-              type="email"
-              placeholder="ikaw@email.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Password</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-            />
-          </div>
+        {/* Fields */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+            placeholder="email@example.com"
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+            placeholder="••••••••"
+          />
         </div>
 
         {/* Message */}
         {message && (
-          <div className={`mt-4 p-3 rounded-xl text-sm ${
-            isError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-          }`}>
+          <p className={`text-sm mb-4 text-center ${isError ? 'text-red-500' : 'text-green-600'}`}>
             {message}
-          </div>
+          </p>
         )}
 
-        {/* Submit Button */}
+        {/* Submit */}
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full mt-5 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white py-3 rounded-xl font-semibold text-sm transition-all"
+          className="w-full bg-green-400 hover:bg-green-500 disabled:opacity-60 text-white font-medium py-3 rounded-xl transition-all"
         >
-          {loading ? 'Loading...' : isSignUp ? 'Gumawa ng Account' : 'Pumasok'}
+          {loading ? 'Loading...' : isSignUp ? 'Mag-Sign Up' : 'Mag-Login'}
         </button>
 
-        <p className="text-center text-xs text-gray-400 mt-4">
-          {isSignUp ? 'May account ka na?' : 'Wala pang account?'}{' '}
+        <p className="text-center text-sm text-gray-400 mt-4">
+          {isSignUp ? 'May account ka na? ' : 'Wala pang account? '}
           <button
             onClick={() => { setIsSignUp(!isSignUp); setMessage('') }}
-            className="text-green-600 font-semibold"
+            className="text-green-500 font-medium"
           >
             {isSignUp ? 'Mag-login' : 'Mag-sign up'}
           </button>
