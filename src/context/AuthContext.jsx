@@ -8,6 +8,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // No Supabase configured — skip auth, go straight to login page
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+
     // Get current session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
@@ -15,17 +21,15 @@ export function AuthProvider({ children }) {
     })
 
     // Listen for login/logout changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null)
-      }
-    )
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
 
     return () => subscription.unsubscribe()
   }, [])
 
   async function signOut() {
-    await supabase.auth.signOut()
+    if (supabase) await supabase.auth.signOut()
   }
 
   return (
