@@ -5,6 +5,7 @@ import Header from '../components/Header'
 import CustomerModal from '../components/CustomerModal'
 import { getCustomersWithBalances } from '../db/database'
 import { formatPeso, getInitials } from '../utils/format'
+import { useApp } from '../context/AppContext'
 
 export default function Customers() {
   const navigate = useNavigate()
@@ -14,11 +15,8 @@ export default function Customers() {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { 
-  loadCustomers()
-  // Reload after short delay to catch downloaded data
-  setTimeout(loadCustomers, 2000)
-}, [])
+  const { dataVersion } = useApp()
+useEffect(() => { loadCustomers() }, [dataVersion])
 
   useEffect(() => {
     if (!search.trim()) {
