@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { addTransaction, getAllCustomers } from '../db/database'
+import { syncToSupabase } from '../db/syncEngine'
 import { useApp } from '../context/AppContext'
 import { formatPeso } from '../utils/format'
 
@@ -56,6 +57,10 @@ export default function TransactionModal({ type = 'utang', customerId = null, on
         },
         validItems.map(i => ({ ...i, unit_price: Number(i.unit_price), quantity: Number(i.quantity) }))
       )
+
+      // Sync immediately to Supabase!
+      syncToSupabase()
+
       const msg = txType === 'utang' ? '📝 Na-record ang utang!' : '💚 Na-record ang bayad!'
       showToast(msg, 'success')
       onSaved?.()
@@ -83,7 +88,6 @@ export default function TransactionModal({ type = 'utang', customerId = null, on
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100"><X size={20} /></button>
         </div>
 
-        {/* Type switcher */}
         <div className="px-5 shrink-0">
           <div className="flex bg-gray-100 rounded-2xl p-1 mb-4">
             <button
@@ -102,7 +106,6 @@ export default function TransactionModal({ type = 'utang', customerId = null, on
         </div>
 
         <div className="overflow-y-auto flex-1 px-5">
-          {/* Customer picker */}
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-600 mb-1.5">Suki *</label>
             <select
@@ -118,7 +121,6 @@ export default function TransactionModal({ type = 'utang', customerId = null, on
             </select>
           </div>
 
-          {/* Items (for utang) */}
           {isUtang && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
@@ -193,7 +195,6 @@ export default function TransactionModal({ type = 'utang', customerId = null, on
             </div>
           )}
 
-          {/* Amount (for bayad) */}
           {!isUtang && (
             <div className="mb-4">
               <label className="block text-sm font-semibold text-gray-600 mb-1.5">Halaga ng Bayad *</label>
@@ -210,7 +211,6 @@ export default function TransactionModal({ type = 'utang', customerId = null, on
             </div>
           )}
 
-          {/* Notes */}
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-600 mb-1.5">Nota (opsyonal)</label>
             <input
