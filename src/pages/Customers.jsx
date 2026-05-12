@@ -14,7 +14,11 @@ export default function Customers() {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadCustomers() }, [])
+  useEffect(() => { 
+  loadCustomers()
+  // Reload after short delay to catch downloaded data
+  setTimeout(loadCustomers, 2000)
+}, [])
 
   useEffect(() => {
     if (!search.trim()) {

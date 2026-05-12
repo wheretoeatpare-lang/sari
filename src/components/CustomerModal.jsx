@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, User, Phone, MapPin } from 'lucide-react'
 import { addCustomer, updateCustomer } from '../db/database'
+import { syncToSupabase } from '../db/syncEngine'
 import { useApp } from '../context/AppContext'
 
 export default function CustomerModal({ customer = null, onClose, onSaved }) {
@@ -28,6 +29,8 @@ export default function CustomerModal({ customer = null, onClose, onSaved }) {
         await addCustomer(form)
         showToast('✅ Naidagdag ang bagong suki!', 'success')
       }
+      // Sync immediately after saving!
+      syncToSupabase()
       onSaved?.()
       onClose()
     } catch (err) {
@@ -40,7 +43,6 @@ export default function CustomerModal({ customer = null, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white w-full max-w-md rounded-t-3xl shadow-2xl animate-slide-up">
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
