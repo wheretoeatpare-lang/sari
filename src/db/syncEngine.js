@@ -142,6 +142,7 @@ export async function syncToSupabase() {
 }
 
 async function syncRecord(queueItem, userId) {
+
   const { id: queueId, table_name, record_id, operation } = queueItem
 
   try {
@@ -214,7 +215,7 @@ function buildPayload(table, record, userId) {
   if (table === 'transactions') {
     return {
       user_id: userId,
-      customer_id: record.remote_id || null,
+      customer_id: record.customer_remote_id || null,
       type: record.type,
       amount: record.amount,
       notes: record.notes,
