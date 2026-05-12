@@ -12,7 +12,6 @@ import LoginPage from './pages/LoginPage'
 export default function App() {
   const { user, loading } = useAuth()
 
-  // Still checking if logged in
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-green-50">
@@ -24,22 +23,23 @@ export default function App() {
     )
   }
 
-  // Not logged in — show login page
   if (!user) {
     return <LoginPage />
   }
 
-  // Logged in — show the app
   return (
     <div className="min-h-screen bg-gray-50">
       <StatusBar />
       <Toast />
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/customers" element={<Customers />} />
-        <Route path="/customers/:id" element={<CustomerDetail />} />
-        <Route path="/transactions" element={<Transactions />} />
-      </Routes>
+      {/* pt-8 pushes content below the fixed green user bar */}
+      <div className="pt-8">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/customers/:id" element={<CustomerDetail />} />
+          <Route path="/transactions" element={<Transactions />} />
+        </Routes>
+      </div>
       <BottomNav />
     </div>
   )
