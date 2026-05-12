@@ -10,6 +10,7 @@ export function AppProvider({ children }) {
   const [isSyncing, setIsSyncing] = useState(false)
   const [lastSync, setLastSync] = useState(null)
   const [toast, setToast] = useState(null)
+  const [dataVersion, setDataVersion] = useState(0) // pages watch this to reload
   const { user } = useAuth()
   const prevUserIdRef = useRef(undefined)
 
@@ -19,25 +20,20 @@ export function AppProvider({ children }) {
 
     if (prevUserId === undefined) {
       prevUserIdRef.current = currentUserId
-      // First load — if user already logged in, download their data
       if (currentUserId && navigator.onLine) {
-        console.log('[Auth] User found on load, downloading data...')
-        downloadFromSupabase()
+        downloadFromSupabase().then(() => setDataVersion(v => v + 1))
+      } else {
+        setDataVersion(v => v + 1)
       }
       return
     }
 
     if (prevUserId !== currentUserId) {
       prevUserIdRef.current = currentUserId
-
       if (currentUserId) {
-        // New user logged in — download their data from Supabase
-        console.log('[Auth] New user logged in, downloading data...')
-        downloadFromSupabase()
+        downloadFromSupabase().then(() => setDataVersion(v => v + 1))
       } else {
-        // User logged out — clear local data
-        console.log('[Auth] User logged out, clearing local data...')
-        clearLocalData()
+        clearLocalData().then(() => setDataVersion(v => v + 1))
       }
     }
   }, [user])
@@ -48,7 +44,6 @@ export function AppProvider({ children }) {
       await db.transactions.clear()
       await db.transaction_items.clear()
       await db.sync_queue.clear()
-      console.log('[Auth] Local data cleared')
     } catch (err) {
       console.error('[Auth] Failed to clear local data:', err)
     }
@@ -64,7 +59,6 @@ export function AppProvider({ children }) {
       setIsOnline(false)
       showToast('📵 Walang internet. Offline mode.', 'warning')
     }
-
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     return () => {
@@ -90,7 +84,7 @@ export function AppProvider({ children }) {
   }
 
   return (
-    <AppContext.Provider value={{ isOnline, isSyncing, lastSync, toast, showToast, handleSync }}>
+    <AppContext.Provider value={{ isOnline, isSyncing, lastSync, toast, showToast, handleSync, dataVersion }}>
       {children}
     </AppContext.Provider>
   )

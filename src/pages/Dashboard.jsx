@@ -6,16 +6,19 @@ import TransactionModal from '../components/TransactionModal'
 import { getTotalUtang, getTodayPayments, getRecentTransactions } from '../db/database'
 import { formatPeso, formatRelative } from '../utils/format'
 import { getInitials } from '../utils/format'
+import { useApp } from '../context/AppContext'
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { dataVersion } = useApp()
   const [totalUtang, setTotalUtang] = useState(0)
   const [todayPayments, setTodayPayments] = useState(0)
   const [recentTxns, setRecentTxns] = useState([])
-  const [showModal, setShowModal] = useState(null) // 'utang' | 'bayad'
+  const [showModal, setShowModal] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadData() }, [])
+  // Reload whenever dataVersion changes (triggered after download)
+  useEffect(() => { loadData() }, [dataVersion])
 
   async function loadData() {
     setLoading(true)
@@ -39,15 +42,12 @@ export default function Dashboard() {
       <Header title="🏪 Utang Tracker" />
 
       <div className="max-w-md mx-auto px-4 pt-5 space-y-5">
-        {/* Greeting */}
         <div>
           <p className="text-gray-500 text-sm">{greeting}, Ate/Kuya! 👋</p>
           <h2 className="text-2xl font-black text-gray-900">Paano ang tindahan?</h2>
         </div>
 
-        {/* Stats cards */}
         <div className="space-y-3">
-          {/* Total Utang */}
           <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-3xl p-5 text-white shadow-lg shadow-red-200">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -63,7 +63,6 @@ export default function Dashboard() {
             <p className="text-sm opacity-75 mt-1">Kabuuang babayaran pa</p>
           </div>
 
-          {/* Today's payments */}
           <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-5 text-white shadow-lg shadow-emerald-200">
             <div className="flex items-center gap-2 mb-3">
               <div className="bg-white/20 rounded-xl p-2">
@@ -78,7 +77,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div>
           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Mabilis na Aksyon</h3>
           <div className="grid grid-cols-2 gap-3">
@@ -101,7 +99,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Transactions */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Pinakabagong Transaksyon</h3>

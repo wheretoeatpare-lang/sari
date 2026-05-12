@@ -18,42 +18,29 @@ export async function downloadFromSupabase() {
   console.log('[Sync] Downloading data from Supabase...')
 
   try {
-    // Download customers
-    const { data: customers, error: cErr } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('user_id', userId)
+    const { data: customers } = await supabase
+      .from('customers').select('*').eq('user_id', userId)
 
-    if (cErr) throw cErr
+    const { data: transactions } = await supabase
+      .from('transactions').select('*').eq('user_id', userId)
 
-    // Download transactions
-    const { data: transactions, error: tErr } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', userId)
-
-    if (tErr) throw tErr
-
-    // Download transaction items
     const txIds = (transactions || []).map(t => t.id)
     let items = []
     if (txIds.length > 0) {
       const { data: itemData } = await supabase
-        .from('transaction_items')
-        .select('*')
-        .in('transaction_id', txIds)
+        .from('transaction_items').select('*').in('transaction_id', txIds)
       items = itemData || []
     }
 
-    // Clear local and repopulate
     await db.customers.clear()
     await db.transactions.clear()
     await db.transaction_items.clear()
     await db.sync_queue.clear()
 
-    // Insert customers into Dexie
+    // Insert customers
+    const remoteToLocalCustomer = {}
     for (const c of customers || []) {
-      await db.customers.add({
+      const localId = await db.customers.add({
         name: c.name,
         phone: c.phone || '',
         address: c.address || '',
@@ -62,18 +49,13 @@ export async function downloadFromSupabase() {
         synced: 1,
         remote_id: c.id,
       })
+      remoteToLocalCustomer[c.id] = localId
     }
 
-    // Build remote→local customer ID map
-    const customerMap = {}
-    const localCustomers = await db.customers.toArray()
-    for (const lc of localCustomers) {
-      customerMap[lc.remote_id] = lc.id
-    }
-
-    // Insert transactions into Dexie
+    // Insert transactions
+    const remoteToLocalTx = {}
     for (const t of transactions || []) {
-      const localCustomerId = customerMap[t.customer_id] ?? null
+      const localCustomerId = remoteToLocalCustomer[t.customer_id] ?? null
       const localTxId = await db.transactions.add({
         customer_id: localCustomerId,
         type: t.type,
@@ -83,28 +65,34 @@ export async function downloadFromSupabase() {
         synced: 1,
         remote_id: t.id,
       })
-
-      // Insert items for this transaction
-      const txItems = items.filter(i => i.transaction_id === t.id)
-      for (const item of txItems) {
-        await db.transaction_items.add({
-          transaction_id: localTxId,
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          synced: 1,
-        })
-      }
+      remoteToLocalTx[t.id] = localTxId
     }
 
-    console.log('[Sync] Download complete!', { customers: customers?.length, transactions: transactions?.length })
+    // Insert transaction items
+    for (const item of items) {
+      const localTxId = remoteToLocalTx[item.transaction_id]
+      if (!localTxId) continue
+      await db.transaction_items.add({
+        transaction_id: localTxId,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+        synced: 1,
+      })
+    }
+
+    console.log('[Sync] Download complete!', {
+      customers: customers?.length,
+      transactions: transactions?.length,
+      items: items?.length
+    })
   } catch (err) {
     console.error('[Sync] Download failed:', err)
   }
 }
 
-// ─── Upload local changes to Supabase ────────────────────────
+// ─── Upload: customers FIRST, then transactions ───────────────
 export async function syncToSupabase() {
   if (!isSupabaseConfigured() || isSyncing || !navigator.onLine) return
 
@@ -121,6 +109,7 @@ export async function syncToSupabase() {
       return
     }
 
+    // Deduplicate
     const dedupMap = new Map()
     for (const item of queue) {
       const key = `${item.table_name}:${item.record_id}`
@@ -129,8 +118,18 @@ export async function syncToSupabase() {
       }
     }
 
+    // Sync CUSTOMERS first!
     for (const [, queueItem] of dedupMap) {
-      await syncRecord(queueItem, userId)
+      if (queueItem.table_name === 'customers') {
+        await syncRecord(queueItem, userId)
+      }
+    }
+
+    // Then sync TRANSACTIONS (now customer remote_ids are set)
+    for (const [, queueItem] of dedupMap) {
+      if (queueItem.table_name === 'transactions') {
+        await syncRecord(queueItem, userId)
+      }
     }
 
     console.log('[Sync] Sync complete.')
@@ -142,7 +141,6 @@ export async function syncToSupabase() {
 }
 
 async function syncRecord(queueItem, userId) {
-
   const { id: queueId, table_name, record_id, operation } = queueItem
 
   try {
@@ -151,6 +149,11 @@ async function syncRecord(queueItem, userId) {
       record = await db.customers.get(record_id)
     } else if (table_name === 'transactions') {
       record = await db.transactions.get(record_id)
+      if (record) {
+        // Look up customer's remote_id AFTER customers are synced
+        const customer = await db.customers.get(record.customer_id)
+        record = { ...record, customer_remote_id: customer?.remote_id || null }
+      }
     } else {
       return
     }
@@ -192,9 +195,7 @@ async function syncTransactionItems(localTxId, remoteTxId) {
         unit_price: item.unit_price,
         total_price: item.total_price,
       })
-      if (!error) {
-        await db.transaction_items.update(item.id, { synced: 1 })
-      }
+      if (!error) await db.transaction_items.update(item.id, { synced: 1 })
     }
   } catch (err) {
     console.error('[Sync] Failed to sync transaction items:', err)
