@@ -11,20 +11,23 @@ export function AppProvider({ children }) {
   const [lastSync, setLastSync] = useState(null)
   const [toast, setToast] = useState(null)
   const { user } = useAuth()
-  const prevUserRef = useRef(null)
+  const prevUserIdRef = useRef(undefined) // undefined = not yet initialized
 
-  // When user changes (login/logout/switch), clear local Dexie data
   useEffect(() => {
-    const prevUser = prevUserRef.current
+    const prevUserId = prevUserIdRef.current
     const currentUserId = user?.id ?? null
-    const prevUserId = prevUser?.id ?? null
 
+    // Skip on very first render (undefined = not initialized yet)
+    if (prevUserId === undefined) {
+      prevUserIdRef.current = currentUserId
+      return
+    }
+
+    // Only clear if DIFFERENT user logged in, or user logged OUT
     if (prevUserId !== currentUserId) {
-      // Different user or logged out — wipe local DB so no data leaks!
-      if (prevUserId !== null || currentUserId !== null) {
-        clearLocalData()
-      }
-      prevUserRef.current = user
+      console.log('[Auth] User changed, clearing local data...')
+      clearLocalData()
+      prevUserIdRef.current = currentUserId
     }
   }, [user])
 
@@ -34,7 +37,7 @@ export function AppProvider({ children }) {
       await db.transactions.clear()
       await db.transaction_items.clear()
       await db.sync_queue.clear()
-      console.log('[Auth] Local data cleared for user switch')
+      console.log('[Auth] Local data cleared')
     } catch (err) {
       console.error('[Auth] Failed to clear local data:', err)
     }
@@ -60,7 +63,7 @@ export function AppProvider({ children }) {
   }, [])
 
   async function handleSync() {
-    if (!user) return // Don't sync if not logged in
+    if (!user) return
     setIsSyncing(true)
     try {
       await syncToSupabase()
