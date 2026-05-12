@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
-import { syncToSupabase } from '../db/syncEngine'
+import { syncToSupabase, downloadFromSupabase } from '../db/syncEngine'
 import { useAuth } from './AuthContext'
 import { db } from '../db/database'
 
@@ -11,23 +11,34 @@ export function AppProvider({ children }) {
   const [lastSync, setLastSync] = useState(null)
   const [toast, setToast] = useState(null)
   const { user } = useAuth()
-  const prevUserIdRef = useRef(undefined) // undefined = not yet initialized
+  const prevUserIdRef = useRef(undefined)
 
   useEffect(() => {
     const prevUserId = prevUserIdRef.current
     const currentUserId = user?.id ?? null
 
-    // Skip on very first render (undefined = not initialized yet)
     if (prevUserId === undefined) {
       prevUserIdRef.current = currentUserId
+      // First load — if user already logged in, download their data
+      if (currentUserId && navigator.onLine) {
+        console.log('[Auth] User found on load, downloading data...')
+        downloadFromSupabase()
+      }
       return
     }
 
-    // Only clear if DIFFERENT user logged in, or user logged OUT
     if (prevUserId !== currentUserId) {
-      console.log('[Auth] User changed, clearing local data...')
-      clearLocalData()
       prevUserIdRef.current = currentUserId
+
+      if (currentUserId) {
+        // New user logged in — download their data from Supabase
+        console.log('[Auth] New user logged in, downloading data...')
+        downloadFromSupabase()
+      } else {
+        // User logged out — clear local data
+        console.log('[Auth] User logged out, clearing local data...')
+        clearLocalData()
+      }
     }
   }, [user])
 
