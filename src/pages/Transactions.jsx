@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react'
-import { Filter, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import Header from '../components/Header'
 import TransactionModal from '../components/TransactionModal'
-import { getRecentTransactions, db } from '../db/database'
+import { getRecentTransactions } from '../db/database'
 import { formatPeso, formatDate, formatTime, getInitials } from '../utils/format'
-
-const FILTERS = [
-  { key: 'all', label: 'Lahat' },
-  { key: 'utang', label: '📝 Utang' },
-  { key: 'bayad', label: '💚 Bayad' },
-]
+import { useLang } from '../context/LanguageContext'
 
 export default function Transactions() {
+  const { t } = useLang()
   const [transactions, setTransactions] = useState([])
   const [filter, setFilter] = useState('all')
   const [showModal, setShowModal] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const FILTERS = [
+    { key: 'all', label: t('all') },
+    { key: 'utang', label: `📝 ${t('debt')}` },
+    { key: 'bayad', label: `💚 ${t('payment')}` },
+  ]
 
   useEffect(() => { loadData() }, [])
 
@@ -28,7 +30,6 @@ export default function Transactions() {
 
   const filtered = filter === 'all' ? transactions : transactions.filter(t => t.type === filter)
 
-  // Group by date
   const grouped = filtered.reduce((acc, txn) => {
     const date = formatDate(txn.created_at)
     if (!acc[date]) acc[date] = []
@@ -36,19 +37,19 @@ export default function Transactions() {
     return acc
   }, {})
 
-  const totalUtang = filtered.filter(t => t.type === 'utang').reduce((s, t) => s + Number(t.amount), 0)
-  const totalBayad = filtered.filter(t => t.type === 'bayad').reduce((s, t) => s + Number(t.amount), 0)
+  const totalUtang = filtered.filter(tx => tx.type === 'utang').reduce((s, tx) => s + Number(tx.amount), 0)
+  const totalBayad = filtered.filter(tx => tx.type === 'bayad').reduce((s, tx) => s + Number(tx.amount), 0)
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       <Header
-        title="📊 Mga Transaksyon"
+        title={t('mgaTransaksyon')}
         rightAction={
           <button
             onClick={() => setShowModal('utang')}
             className="bg-emerald-500 text-white rounded-xl px-3 py-2 flex items-center gap-1 font-bold text-sm shadow-sm shadow-emerald-200"
           >
-            <Plus size={16} /> Bago
+            <Plus size={16} /> {t('addItem')}
           </button>
         }
       />
@@ -58,11 +59,11 @@ export default function Transactions() {
         <div className="bg-white rounded-2xl p-4 grid grid-cols-2 gap-3 shadow-sm">
           <div className="text-center">
             <p className="text-xl font-black text-red-500">{formatPeso(totalUtang)}</p>
-            <p className="text-xs text-gray-400">Kabuuang Utang</p>
+            <p className="text-xs text-gray-400">{t('totalDebtLabel')}</p>
           </div>
           <div className="text-center border-l border-gray-100">
             <p className="text-xl font-black text-emerald-500">{formatPeso(totalBayad)}</p>
-            <p className="text-xs text-gray-400">Kabuuang Bayad</p>
+            <p className="text-xs text-gray-400">{t('totalPaymentLabel')}</p>
           </div>
         </div>
 
@@ -89,13 +90,13 @@ export default function Transactions() {
             onClick={() => setShowModal('utang')}
             className="flex items-center justify-center gap-2 bg-red-50 border-2 border-red-100 text-red-600 font-bold py-3 rounded-2xl text-sm hover:bg-red-100 active:bg-red-200 transition-colors"
           >
-            📝 I-record ng Utang
+            {t('recordDebtBtn')}
           </button>
           <button
             onClick={() => setShowModal('bayad')}
             className="flex items-center justify-center gap-2 bg-emerald-50 border-2 border-emerald-100 text-emerald-600 font-bold py-3 rounded-2xl text-sm hover:bg-emerald-100 active:bg-emerald-200 transition-colors"
           >
-            💚 I-record ng Bayad
+            {t('recordPaymentBtn')}
           </button>
         </div>
 
@@ -107,8 +108,8 @@ export default function Transactions() {
         ) : Object.keys(grouped).length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center shadow-sm">
             <p className="text-5xl mb-3">📋</p>
-            <p className="font-bold text-gray-700">Wala pang transaksyon</p>
-            <p className="text-gray-400 text-sm mt-1">I-record ang unang utang o bayad!</p>
+            <p className="font-bold text-gray-700">{t('noTransactionsFilter')}</p>
+            <p className="text-gray-400 text-sm mt-1">{t('recordFirstAction')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -135,7 +136,7 @@ export default function Transactions() {
                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
                           txn.type === 'utang' ? 'bg-red-50 text-red-400' : 'bg-emerald-50 text-emerald-500'
                         }`}>
-                          {txn.type}
+                          {txn.type === 'utang' ? t('debt') : t('payment')}
                         </span>
                       </div>
                     </div>

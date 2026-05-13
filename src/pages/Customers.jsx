@@ -6,9 +6,11 @@ import CustomerModal from '../components/CustomerModal'
 import { getCustomersWithBalances } from '../db/database'
 import { formatPeso, getInitials } from '../utils/format'
 import { useApp } from '../context/AppContext'
+import { useLang } from '../context/LanguageContext'
 
 export default function Customers() {
   const navigate = useNavigate()
+  const { t } = useLang()
   const [customers, setCustomers] = useState([])
   const [filtered, setFiltered] = useState([])
   const [search, setSearch] = useState('')
@@ -16,7 +18,7 @@ export default function Customers() {
   const [loading, setLoading] = useState(true)
 
   const { dataVersion } = useApp()
-useEffect(() => { loadCustomers() }, [dataVersion])
+  useEffect(() => { loadCustomers() }, [dataVersion])
 
   useEffect(() => {
     if (!search.trim()) {
@@ -42,13 +44,13 @@ useEffect(() => { loadCustomers() }, [dataVersion])
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <Header
-        title="👥 Mga Suki"
+        title={t('mgaSuki')}
         rightAction={
           <button
             onClick={() => setShowModal(true)}
             className="bg-emerald-500 text-white rounded-xl px-3 py-2 flex items-center gap-1 font-bold text-sm shadow-sm shadow-emerald-200"
           >
-            <Plus size={16} /> Dagdag
+            <Plus size={16} /> {t('addItem')}
           </button>
         }
       />
@@ -58,11 +60,11 @@ useEffect(() => { loadCustomers() }, [dataVersion])
         <div className="bg-white rounded-2xl p-4 flex gap-3 shadow-sm">
           <div className="flex-1 text-center border-r border-gray-100">
             <p className="text-2xl font-black text-gray-900">{customers.length}</p>
-            <p className="text-xs text-gray-400">Lahat ng Suki</p>
+            <p className="text-xs text-gray-400">{t('allCustomers')}</p>
           </div>
           <div className="flex-1 text-center">
             <p className="text-2xl font-black text-red-500">{totalDebtors}</p>
-            <p className="text-xs text-gray-400">May Utang</p>
+            <p className="text-xs text-gray-400">{t('withDebt')}</p>
           </div>
         </div>
 
@@ -73,7 +75,7 @@ useEffect(() => { loadCustomers() }, [dataVersion])
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Hanapin ang suki..."
+            placeholder={t('searchCustomer')}
             className="w-full bg-white border-2 border-gray-100 rounded-2xl pl-11 pr-4 py-3.5 text-base focus:border-emerald-400 focus:outline-none shadow-sm"
           />
         </div>
@@ -97,17 +99,17 @@ useEffect(() => { loadCustomers() }, [dataVersion])
           <div className="bg-white rounded-3xl p-10 text-center shadow-sm">
             <p className="text-5xl mb-3">{search ? '🔍' : '👤'}</p>
             <p className="font-bold text-gray-700">
-              {search ? 'Walang nakitang suki' : 'Wala pang suki'}
+              {search ? t('noCustomerFound') : t('noCustomersYet')}
             </p>
             <p className="text-gray-400 text-sm mt-1">
-              {search ? 'Subukan ng ibang pangalan' : 'Mag-dagdag ng bagong suki!'}
+              {search ? t('tryOtherName') : t('addFirstCustomer')}
             </p>
             {!search && (
               <button
                 onClick={() => setShowModal(true)}
                 className="mt-4 bg-emerald-500 text-white px-5 py-2.5 rounded-2xl font-bold text-sm shadow-md shadow-emerald-200"
               >
-                + Dagdag ng Suki
+                {t('addCustomer')}
               </button>
             )}
           </div>
@@ -142,17 +144,17 @@ useEffect(() => { loadCustomers() }, [dataVersion])
                     {customer.balance > 0 ? (
                       <>
                         <p className="font-black text-red-500">{formatPeso(customer.balance)}</p>
-                        <p className="text-xs text-red-300">utang pa</p>
+                        <p className="text-xs text-red-300">{t('debtRemaining')}</p>
                       </>
                     ) : customer.balance < 0 ? (
                       <>
                         <p className="font-black text-emerald-500">{formatPeso(Math.abs(customer.balance))}</p>
-                        <p className="text-xs text-emerald-300">sobrang bayad</p>
+                        <p className="text-xs text-emerald-300">{t('overpaid')}</p>
                       </>
                     ) : (
                       <>
                         <p className="font-bold text-gray-400">₱0</p>
-                        <p className="text-xs text-gray-300">wala nang utang</p>
+                        <p className="text-xs text-gray-300">{t('noDebt')}</p>
                       </>
                     )}
                   </div>

@@ -4,11 +4,14 @@ import { Edit2, Phone, MapPin } from 'lucide-react'
 import Header from '../components/Header'
 import CustomerModal from '../components/CustomerModal'
 import TransactionModal from '../components/TransactionModal'
+import EditTransactionModal from '../components/EditTransactionModal'
 import { getCustomerById, getTransactionsByCustomer, getCustomerBalance, getTransactionItems } from '../db/database'
 import { formatPeso, formatDate, formatTime, getInitials } from '../utils/format'
+import { useLang } from '../context/LanguageContext'
 
 export default function CustomerDetail() {
   const { id } = useParams()
+  const { t } = useLang()
   const [customer, setCustomer] = useState(null)
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState([])
@@ -17,6 +20,7 @@ export default function CustomerDetail() {
   const [expandedTx, setExpandedTx] = useState(null)
   const [txItems, setTxItems] = useState({})
   const [loading, setLoading] = useState(true)
+  const [editingTransaction, setEditingTransaction] = useState(null)
 
   useEffect(() => { loadData() }, [id])
 
@@ -107,11 +111,11 @@ export default function CustomerDetail() {
           : 'bg-gradient-to-br from-gray-400 to-gray-500'
         }`}>
           <p className="text-sm font-semibold opacity-80 mb-1">
-            {balance > 0 ? 'Utang pa ni suki' : balance < 0 ? 'Sobrang bayad' : 'Walang utang'}
+            {balance > 0 ? t('utangPaSuki') : balance < 0 ? t('overpaidLabel') : t('noDebtLabel')}
           </p>
           <p className="text-4xl font-black">{formatPeso(Math.abs(balance))}</p>
-          {balance > 0 && <p className="text-sm opacity-75 mt-1">Kailangan pang bayaran</p>}
-          {balance === 0 && <p className="text-sm opacity-75 mt-1">Ayos! Bayad na lahat 🎉</p>}
+          {balance > 0 && <p className="text-sm opacity-75 mt-1">{t('needsToPay')}</p>}
+          {balance === 0 && <p className="text-sm opacity-75 mt-1">{t('allPaid')}</p>}
         </div>
 
         {/* Action buttons */}
@@ -120,58 +124,70 @@ export default function CustomerDetail() {
             onClick={() => setShowTxModal('utang')}
             className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 rounded-2xl text-base transition-colors shadow-md shadow-red-200"
           >
-            📝 Utang
+            📝 {t('debt')}
           </button>
           <button
             onClick={() => setShowTxModal('bayad')}
             className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold py-4 rounded-2xl text-base transition-colors shadow-md shadow-emerald-200"
           >
-            💚 Bayad
+            💚 {t('payment')}
           </button>
         </div>
 
         {/* Transaction history */}
         <div>
           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">
-            Kasaysayan ng Transaksyon ({transactions.length})
+            {t('transactionHistory')} ({transactions.length})
           </h3>
 
           {transactions.length === 0 ? (
             <div className="bg-white rounded-3xl p-8 text-center shadow-sm">
               <p className="text-4xl mb-2">📋</p>
-              <p className="text-gray-500 font-medium">Walang transaksyon pa</p>
+              <p className="text-gray-500 font-medium">{t('noTransactionsYet')}</p>
             </div>
           ) : (
             <div className="space-y-2">
               {transactions.map(txn => (
                 <div key={txn.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                  <button
-                    onClick={() => toggleExpand(txn.id)}
-                    className="w-full p-4 flex items-center gap-3 text-left"
-                  >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0 ${
-                      txn.type === 'utang' ? 'bg-red-50' : 'bg-emerald-50'
-                    }`}>
-                      {txn.type === 'utang' ? '📝' : '💚'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900">
-                        {txn.type === 'utang' ? 'Nag-utang' : 'Nagbayad'}
+                  <div className="w-full p-4 flex items-center gap-3">
+                    {/* Tap area to expand */}
+                    <button
+                      onClick={() => toggleExpand(txn.id)}
+                      className="flex items-center gap-3 flex-1 text-left min-w-0"
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0 ${
+                        txn.type === 'utang' ? 'bg-red-50' : 'bg-emerald-50'
+                      }`}>
+                        {txn.type === 'utang' ? '📝' : '💚'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-gray-900">
+                          {txn.type === 'utang' ? t('borrowed') : t('paid')}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {formatDate(txn.created_at)} · {formatTime(txn.created_at)}
+                        </p>
+                        {txn.notes && <p className="text-xs text-gray-500 italic mt-0.5">"{txn.notes}"</p>}
+                      </div>
+                      <p className={`font-black text-lg shrink-0 ${txn.type === 'utang' ? 'text-red-500' : 'text-emerald-500'}`}>
+                        {txn.type === 'utang' ? '-' : '+'}{formatPeso(txn.amount)}
                       </p>
-                      <p className="text-xs text-gray-400">
-                        {formatDate(txn.created_at)} · {formatTime(txn.created_at)}
-                      </p>
-                      {txn.notes && <p className="text-xs text-gray-500 italic mt-0.5">"{txn.notes}"</p>}
-                    </div>
-                    <p className={`font-black text-lg shrink-0 ${txn.type === 'utang' ? 'text-red-500' : 'text-emerald-500'}`}>
-                      {txn.type === 'utang' ? '-' : '+'}{formatPeso(txn.amount)}
-                    </p>
-                  </button>
+                    </button>
+
+                    {/* Edit button */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingTransaction(txn) }}
+                      className="ml-2 p-2 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors shrink-0"
+                      title="Edit"
+                    >
+                      <Edit2 size={15} className="text-gray-400 hover:text-gray-600" />
+                    </button>
+                  </div>
 
                   {/* Expanded items */}
                   {expandedTx === txn.id && txItems[txn.id]?.length > 0 && (
                     <div className="px-4 pb-4 border-t border-gray-50">
-                      <p className="text-xs font-bold text-gray-400 uppercase mt-3 mb-2">Mga Binili:</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase mt-3 mb-2">{t('itemsBought')}</p>
                       <div className="space-y-1.5">
                         {txItems[txn.id].map(item => (
                           <div key={item.id} className="flex justify-between items-center text-sm">
@@ -203,6 +219,18 @@ export default function CustomerDetail() {
           customerId={customer.id}
           onClose={() => setShowTxModal(null)}
           onSaved={loadData}
+        />
+      )}
+
+      {editingTransaction && (
+        <EditTransactionModal
+          transaction={editingTransaction}
+          onClose={() => setEditingTransaction(null)}
+          onSaved={() => {
+            setEditingTransaction(null)
+            setTxItems({}) // clear cached items so they reload fresh
+            loadData()
+          }}
         />
       )}
     </div>

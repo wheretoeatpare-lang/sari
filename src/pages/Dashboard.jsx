@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TrendingDown, TrendingUp, Clock, Plus, ArrowRight } from 'lucide-react'
+import { TrendingDown, TrendingUp, ArrowRight } from 'lucide-react'
 import Header from '../components/Header'
 import TransactionModal from '../components/TransactionModal'
 import { getTotalUtang, getTodayPayments, getRecentTransactions } from '../db/database'
-import { formatPeso, formatRelative } from '../utils/format'
-import { getInitials } from '../utils/format'
+import { formatPeso, formatRelative, getInitials } from '../utils/format'
 import { useApp } from '../context/AppContext'
+import { useLang } from '../context/LanguageContext'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { dataVersion } = useApp()
+  const { t } = useLang()
   const [totalUtang, setTotalUtang] = useState(0)
   const [todayPayments, setTodayPayments] = useState(0)
   const [recentTxns, setRecentTxns] = useState([])
   const [showModal, setShowModal] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Reload whenever dataVersion changes (triggered after download)
   useEffect(() => { loadData() }, [dataVersion])
 
   async function loadData() {
@@ -35,16 +35,16 @@ export default function Dashboard() {
 
   const now = new Date()
   const hour = now.getHours()
-  const greeting = hour < 12 ? 'Magandang umaga' : hour < 18 ? 'Magandang hapon' : 'Magandang gabi'
+  const greeting = hour < 12 ? t('goodMorning') : hour < 18 ? t('goodAfternoon') : t('goodEvening')
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <Header title="🏪 Utang Tracker" />
+      <Header title={t('utangTracker')} />
 
       <div className="max-w-md mx-auto px-4 pt-5 space-y-5">
         <div>
           <p className="text-gray-500 text-sm">{greeting}, Ate/Kuya! 👋</p>
-          <h2 className="text-2xl font-black text-gray-900">Paano ang tindahan?</h2>
+          <h2 className="text-2xl font-black text-gray-900">{t('howsShop')}</h2>
         </div>
 
         <div className="space-y-3">
@@ -54,13 +54,13 @@ export default function Dashboard() {
                 <div className="bg-white/20 rounded-xl p-2">
                   <TrendingDown size={20} />
                 </div>
-                <span className="text-sm font-semibold opacity-90">Total Utang ng mga Suki</span>
+                <span className="text-sm font-semibold opacity-90">{t('totalUtangSuki')}</span>
               </div>
             </div>
             <p className="text-4xl font-black tracking-tight">
               {loading ? '...' : formatPeso(totalUtang)}
             </p>
-            <p className="text-sm opacity-75 mt-1">Kabuuang babayaran pa</p>
+            <p className="text-sm opacity-75 mt-1">{t('totalToPay')}</p>
           </div>
 
           <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-5 text-white shadow-lg shadow-emerald-200">
@@ -68,42 +68,42 @@ export default function Dashboard() {
               <div className="bg-white/20 rounded-xl p-2">
                 <TrendingUp size={20} />
               </div>
-              <span className="text-sm font-semibold opacity-90">Mga Bayad Ngayon</span>
+              <span className="text-sm font-semibold opacity-90">{t('paymentsToday')}</span>
             </div>
             <p className="text-4xl font-black tracking-tight">
               {loading ? '...' : formatPeso(todayPayments)}
             </p>
-            <p className="text-sm opacity-75 mt-1">Nakolekta ngayong araw</p>
+            <p className="text-sm opacity-75 mt-1">{t('collectedToday')}</p>
           </div>
         </div>
 
         <div>
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Mabilis na Aksyon</h3>
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">{t('quickActions')}</h3>
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setShowModal('utang')}
               className="bg-white border-2 border-red-100 rounded-3xl p-4 text-left hover:border-red-300 active:bg-red-50 transition-all shadow-sm"
             >
               <div className="text-2xl mb-2">📝</div>
-              <p className="font-bold text-gray-900">Mag-utang</p>
-              <p className="text-xs text-gray-500">I-record ang bagong utang</p>
+              <p className="font-bold text-gray-900">{t('addUtang')}</p>
+              <p className="text-xs text-gray-500">{t('recordNewDebt')}</p>
             </button>
             <button
               onClick={() => setShowModal('bayad')}
               className="bg-white border-2 border-emerald-100 rounded-3xl p-4 text-left hover:border-emerald-300 active:bg-emerald-50 transition-all shadow-sm"
             >
               <div className="text-2xl mb-2">💚</div>
-              <p className="font-bold text-gray-900">Mag-bayad</p>
-              <p className="text-xs text-gray-500">I-record ang bayad</p>
+              <p className="font-bold text-gray-900">{t('addBayad')}</p>
+              <p className="text-xs text-gray-500">{t('recordPayment')}</p>
             </button>
           </div>
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Pinakabagong Transaksyon</h3>
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide">{t('recentTransactions')}</h3>
             <button onClick={() => navigate('/transactions')} className="text-emerald-600 text-sm font-semibold flex items-center gap-1">
-              Lahat <ArrowRight size={14} />
+              {t('seeAll')} <ArrowRight size={14} />
             </button>
           </div>
 
@@ -124,8 +124,8 @@ export default function Dashboard() {
           ) : recentTxns.length === 0 ? (
             <div className="bg-white rounded-3xl p-8 text-center shadow-sm">
               <p className="text-4xl mb-2">📋</p>
-              <p className="text-gray-500 font-medium">Wala pang transaksyon</p>
-              <p className="text-gray-400 text-sm">I-record ang una mong utang!</p>
+              <p className="text-gray-500 font-medium">{t('noTransactions')}</p>
+              <p className="text-gray-400 text-sm">{t('recordFirstDebt')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -144,7 +144,7 @@ export default function Dashboard() {
                     <p className={`font-black text-base ${txn.type === 'utang' ? 'text-red-500' : 'text-emerald-500'}`}>
                       {txn.type === 'utang' ? '-' : '+'}{formatPeso(txn.amount)}
                     </p>
-                    <p className="text-xs text-gray-400">{txn.type === 'utang' ? 'Utang' : 'Bayad'}</p>
+                    <p className="text-xs text-gray-400">{txn.type === 'utang' ? t('debt') : t('payment')}</p>
                   </div>
                 </div>
               ))}

@@ -1,13 +1,16 @@
 import { NavLink } from 'react-router-dom'
 import { Home, Users, ArrowLeftRight } from 'lucide-react'
-
-const navItems = [
-  { to: '/', icon: Home, label: 'Dashboard' },
-  { to: '/customers', icon: Users, label: 'Mga Suki' },
-  { to: '/transactions', icon: ArrowLeftRight, label: 'Transaksyon' },
-]
+import { useLang } from '../context/LanguageContext'
 
 export default function BottomNav() {
+  const { t } = useLang()
+
+  const navItems = [
+    { to: '/', icon: Home, label: t('navDashboard') },
+    { to: '/customers', icon: Users, label: t('navCustomers') },
+    { to: '/transactions', icon: ArrowLeftRight, label: t('navTransactions') },
+  ]
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-lg">
       <div className="max-w-md mx-auto flex">
@@ -18,9 +21,7 @@ export default function BottomNav() {
             end={to === '/'}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors ${
-                isActive
-                  ? 'text-emerald-600'
-                  : 'text-gray-400 hover:text-gray-600'
+                isActive ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-600'
               }`
             }
           >

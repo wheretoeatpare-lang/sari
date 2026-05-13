@@ -67,6 +67,61 @@ export async function addTransaction(txData, items = []) {
   return txId
 }
 
+export async function updateTransaction(transactionId, { amount, notes }) {
+  const now = new Date().toISOString()
+  await db.transactions.update(Number(transactionId), {
+    amount,
+    notes,
+    updated_at: now,
+    synced: 0,
+  })
+  await db.sync_queue.add({
+    table_name: 'transactions',
+    record_id: Number(transactionId),
+    operation: 'UPDATE',
+    created_at: now,
+  })
+}
+
+export async function deleteTransaction(transactionId) {
+  const now = new Date().toISOString()
+  // Delete related items first
+  await db.transaction_items
+    .where('transaction_id')
+    .equals(Number(transactionId))
+    .delete()
+  // Queue delete for sync
+  await db.sync_queue.add({
+    table_name: 'transactions',
+    record_id: Number(transactionId),
+    operation: 'DELETE',
+    created_at: now,
+  })
+  // Delete the transaction
+  await db.transactions.delete(Number(transactionId))
+}
+
+export async function updateTransactionItems(transactionId, newItems) {
+  // Remove all old items for this transaction
+  await db.transaction_items
+    .where('transaction_id')
+    .equals(Number(transactionId))
+    .delete()
+
+  // Insert new items
+  if (newItems && newItems.length > 0) {
+    const itemsToInsert = newItems.map(item => ({
+      transaction_id: Number(transactionId),
+      description: item.description,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      total_price: Number(item.quantity) * Number(item.unit_price),
+      synced: 0,
+    }))
+    await db.transaction_items.bulkAdd(itemsToInsert)
+  }
+}
+
 export async function getTransactionsByCustomer(customerId) {
   return db.transactions
     .where('customer_id')
