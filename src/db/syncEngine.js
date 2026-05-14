@@ -109,23 +109,30 @@ export async function syncToSupabase() {
       return
     }
 
-    // Deduplicate
+    // Deduplicate — keep latest queue entry per record
+    // BUT: if any entry for a key is DELETE, that wins
     const dedupMap = new Map()
     for (const item of queue) {
       const key = `${item.table_name}:${item.record_id}`
-      if (!dedupMap.has(key) || item.id > dedupMap.get(key).id) {
+      const existing = dedupMap.get(key)
+      if (!existing) {
+        dedupMap.set(key, item)
+      } else if (item.operation === 'DELETE') {
+        // DELETE always wins
+        dedupMap.set(key, item)
+      } else if (existing.operation !== 'DELETE' && item.id > existing.id) {
         dedupMap.set(key, item)
       }
     }
 
-    // Sync CUSTOMERS first!
+    // Sync CUSTOMERS first
     for (const [, queueItem] of dedupMap) {
       if (queueItem.table_name === 'customers') {
         await syncRecord(queueItem, userId)
       }
     }
 
-    // Then sync TRANSACTIONS (now customer remote_ids are set)
+    // Then sync TRANSACTIONS
     for (const [, queueItem] of dedupMap) {
       if (queueItem.table_name === 'transactions') {
         await syncRecord(queueItem, userId)
@@ -144,13 +151,48 @@ async function syncRecord(queueItem, userId) {
   const { id: queueId, table_name, record_id, operation } = queueItem
 
   try {
+    // ── HANDLE DELETE ──────────────────────────────────────────
+    if (operation === 'DELETE') {
+      if (table_name === 'transactions') {
+        // We stored the remote_id in the queue for deletes
+        const remoteId = queueItem.remote_id
+        if (remoteId) {
+          // Delete transaction_items from Supabase first
+          await supabase
+            .from('transaction_items')
+            .delete()
+            .eq('transaction_id', remoteId)
+
+          // Delete the transaction from Supabase
+          const { error } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', remoteId)
+
+          if (error) throw error
+        }
+      } else if (table_name === 'customers') {
+        const remoteId = queueItem.remote_id
+        if (remoteId) {
+          const { error } = await supabase
+            .from('customers')
+            .delete()
+            .eq('id', remoteId)
+          if (error) throw error
+        }
+      }
+      // Remove from sync queue regardless
+      await db.sync_queue.delete(queueId)
+      return
+    }
+
+    // ── HANDLE INSERT / UPDATE ─────────────────────────────────
     let record
     if (table_name === 'customers') {
       record = await db.customers.get(record_id)
     } else if (table_name === 'transactions') {
       record = await db.transactions.get(record_id)
       if (record) {
-        // Look up customer's remote_id AFTER customers are synced
         const customer = await db.customers.get(record.customer_id)
         record = { ...record, customer_remote_id: customer?.remote_id || null }
       }
@@ -158,7 +200,11 @@ async function syncRecord(queueItem, userId) {
       return
     }
 
-    if (!record) return
+    if (!record) {
+      // Record was deleted locally before sync could run — clean up queue
+      await db.sync_queue.delete(queueId)
+      return
+    }
 
     const payload = buildPayload(table_name, record, userId)
 
@@ -172,6 +218,10 @@ async function syncRecord(queueItem, userId) {
     } else if (operation === 'UPDATE' && record.remote_id) {
       const { error } = await supabase.from(table_name).update(payload).eq('id', record.remote_id)
       if (error) throw error
+      if (table_name === 'transactions') {
+        // Re-sync items on update too
+        await syncTransactionItemsOnUpdate(record_id, record.remote_id)
+      }
       await markSynced(queueId, table_name, record_id, record.remote_id)
     } else if (record.remote_id) {
       const { data, error } = await supabase.from(table_name).upsert({ ...payload, id: record.remote_id }).select().single()
@@ -199,6 +249,29 @@ async function syncTransactionItems(localTxId, remoteTxId) {
     }
   } catch (err) {
     console.error('[Sync] Failed to sync transaction items:', err)
+  }
+}
+
+// Used when editing a transaction — replace all items in Supabase
+async function syncTransactionItemsOnUpdate(localTxId, remoteTxId) {
+  try {
+    // Delete existing items from Supabase
+    await supabase.from('transaction_items').delete().eq('transaction_id', remoteTxId)
+
+    // Re-insert current local items
+    const items = await db.transaction_items.where('transaction_id').equals(localTxId).toArray()
+    for (const item of items) {
+      const { error } = await supabase.from('transaction_items').insert({
+        transaction_id: remoteTxId,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+      })
+      if (!error) await db.transaction_items.update(item.id, { synced: 1 })
+    }
+  } catch (err) {
+    console.error('[Sync] Failed to update transaction items in Supabase:', err)
   }
 }
 

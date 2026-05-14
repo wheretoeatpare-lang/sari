@@ -6,7 +6,7 @@ db.version(1).stores({
   customers: '++id, name, phone, address, created_at, updated_at, synced, remote_id',
   transactions: '++id, customer_id, type, amount, notes, created_at, synced, remote_id',
   transaction_items: '++id, transaction_id, description, quantity, unit_price, total_price, synced',
-  sync_queue: '++id, table_name, record_id, operation, created_at',
+  sync_queue: '++id, table_name, record_id, operation, remote_id, created_at',
 })
 
 // ─── Customers ───────────────────────────────────────────────
@@ -20,14 +20,14 @@ export async function addCustomer(data) {
     synced: 0,
     remote_id: null,
   })
-  await db.sync_queue.add({ table_name: 'customers', record_id: id, operation: 'INSERT', created_at: now })
+  await db.sync_queue.add({ table_name: 'customers', record_id: id, operation: 'INSERT', remote_id: null, created_at: now })
   return id
 }
 
 export async function updateCustomer(id, data) {
   const now = new Date().toISOString()
   await db.customers.update(id, { ...data, updated_at: now, synced: 0 })
-  await db.sync_queue.add({ table_name: 'customers', record_id: id, operation: 'UPDATE', created_at: now })
+  await db.sync_queue.add({ table_name: 'customers', record_id: id, operation: 'UPDATE', remote_id: null, created_at: now })
 }
 
 export async function getAllCustomers() {
@@ -44,7 +44,7 @@ export async function addTransaction(txData, items = []) {
   const now = new Date().toISOString()
   const txId = await db.transactions.add({
     customer_id: txData.customer_id,
-    type: txData.type, // 'utang' | 'bayad'
+    type: txData.type,
     amount: txData.amount,
     notes: txData.notes || '',
     created_at: txData.created_at || now,
@@ -63,7 +63,7 @@ export async function addTransaction(txData, items = []) {
     })
   }
 
-  await db.sync_queue.add({ table_name: 'transactions', record_id: txId, operation: 'INSERT', created_at: now })
+  await db.sync_queue.add({ table_name: 'transactions', record_id: txId, operation: 'INSERT', remote_id: null, created_at: now })
   return txId
 }
 
@@ -79,36 +79,45 @@ export async function updateTransaction(transactionId, { amount, notes }) {
     table_name: 'transactions',
     record_id: Number(transactionId),
     operation: 'UPDATE',
+    remote_id: null,
     created_at: now,
   })
 }
 
 export async function deleteTransaction(transactionId) {
   const now = new Date().toISOString()
-  // Delete related items first
+
+  // Get remote_id BEFORE deleting — needed to delete from Supabase
+  const transaction = await db.transactions.get(Number(transactionId))
+  const remoteId = transaction?.remote_id ?? null
+
+  // Delete local items first
   await db.transaction_items
     .where('transaction_id')
     .equals(Number(transactionId))
     .delete()
-  // Queue delete for sync
-  await db.sync_queue.add({
-    table_name: 'transactions',
-    record_id: Number(transactionId),
-    operation: 'DELETE',
-    created_at: now,
-  })
-  // Delete the transaction
+
+  // Delete local transaction
   await db.transactions.delete(Number(transactionId))
+
+  // Only queue DELETE sync if it was already pushed to Supabase
+  if (remoteId) {
+    await db.sync_queue.add({
+      table_name: 'transactions',
+      record_id: Number(transactionId),
+      operation: 'DELETE',
+      remote_id: remoteId,
+      created_at: now,
+    })
+  }
 }
 
 export async function updateTransactionItems(transactionId, newItems) {
-  // Remove all old items for this transaction
   await db.transaction_items
     .where('transaction_id')
     .equals(Number(transactionId))
     .delete()
 
-  // Insert new items
   if (newItems && newItems.length > 0) {
     const itemsToInsert = newItems.map(item => ({
       transaction_id: Number(transactionId),
